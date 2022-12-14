@@ -27,6 +27,9 @@ fn main() {
     restes.sort_unstable();
     boites.sort_unstable();
 
+
+    //Because restes and boites are sorted we are sure to store as many restes as possible because restes are always put in the smallest box possible for them (excepting the ones already taken)
+
     let mut restes_indice = 0;
     let mut current_reste_size = restes[0];
     let mut boites_indice = 0;
