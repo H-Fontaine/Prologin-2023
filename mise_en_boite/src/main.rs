@@ -36,7 +36,9 @@ fn main() {
             res += 1;
             restes_indice += 1;
             boites_indice += 1;
-            current_reste_size = restes[restes_indice];
+            if restes_indice < n {
+                current_reste_size = restes[restes_indice];
+            }
         } else {
             while boites_indice < n && boites[boites_indice] < current_reste_size {
                 boites_indice += 1;
