@@ -1,5 +1,3 @@
-use std::thread::current;
-
 /// * `n` - Le nombre de boîtes et de restes
 /// * `restes` - Liste des volumes des restes
 /// * `boites` - Liste des volumes des boîtes
@@ -11,13 +9,13 @@ fn main() {
         .parse()
         .expect("invalid `N` parameter");
 
-    let mut restes = read_line(&mut buffer)
+    let mut restes : Vec<u32> = read_line(&mut buffer)
         .split_whitespace()
         .map(str::parse)
         .collect::<Result<_, _>>()
         .expect("invalid `restes` parameter");
 
-    let mut boites = read_line(&mut buffer)
+    let mut boites : Vec<u32> = read_line(&mut buffer)
         .split_whitespace()
         .map(str::parse)
         .collect::<Result<_, _>>()
@@ -26,7 +24,6 @@ fn main() {
     //Sorting of restes and boites (sort_unstable a little faster than sort)
     restes.sort_unstable();
     boites.sort_unstable();
-
 
     //Because restes and boites are sorted we are sure to store as many restes as possible because restes are always put in the smallest box possible for them (excepting the ones already taken)
 
