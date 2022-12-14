@@ -1,6 +1,7 @@
-// 1- Store entry in 2 hashsets
-// 2- Calculate the intersection of the two hashsets
-// 3- The number of movies minus the size of the intersected hashsets
+// 1- Read the entry
+// 2- Store entry in 2 hashsets
+// 3- Calculate the intersection of the two hashsets
+// 4- The number of movies minus the size of the intersected hashsets
 
 
 use std::collections::HashSet;
@@ -16,8 +17,8 @@ fn main() {
     // 2- Calculate the intersection of the two hashmaps
     let intersection = set_adore.intersection(&set_deteste);
 
-    // 3- The number of movies minus the size of the intersected hashsets
-    println!("{}", 6 - intersection.count());
+    // 3- The number of movies possible to watch minus the size of the intersected hashsets
+    println!("{}", set_adore.len() - intersection.count());
 }
 
 fn read_line(buffer: &mut String) -> &str {
