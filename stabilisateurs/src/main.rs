@@ -5,7 +5,11 @@
 
 fn stabilite_maximale(n: usize, k: usize, p: i32, mut accroches: Vec<i32>) {
     accroches.sort_unstable(); //sorting the values to calculate less groups (most stables groups are consecutive values)
-    let all_groups = find_all_groups(n, k, &accroches[..]);
+    let mut all_distances = Vec::with_capacity(n - 3);
+    for i in 0..(n - 3) {
+        all_distances.push(accroches[i + 3] - accroches[i]);
+    }
+    let all_groups = find_all_groups(all_distances.len(), k, all_distances);
     let mut res = 0;
     for group in all_groups {
         let mut group_value = 0;
@@ -22,28 +26,31 @@ fn stabilite_maximale(n: usize, k: usize, p: i32, mut accroches: Vec<i32>) {
     println!("{}", res);
 }
 
-fn find_all_groups(n: usize, k: usize, accroches : &[i32]) -> Vec<Vec<i32>> {
-    if n <= 3 || k == 0 {
-        vec![vec![]]
-    } else {
-        let mut res = find_all_groups(n - 4, k - 1, &accroches[4..]);
-        if res[0].len() != 0 { //If there is sub groups
-            res.push(vec![]);
-        }
-        for group in &mut res {
-            group.push(accroches[3] - accroches[0])
-        }
-        for i in 1..(n-3) {
-            let mut sub_groups = find_all_groups(n - 4 - i, k - 1, &accroches[(4 + i)..]);
-            if sub_groups[0].len() != 0 {
-                sub_groups.push(vec![]);
-            }
-            res.extend(sub_groups.into_iter().map(|mut a| {
-                a.push(accroches[i + 3] - accroches[i]);
-                a}));
-        }
-        res
+fn find_all_groups(n : usize, mut k: usize, input : Vec<i32>) -> Vec<Vec<i32>> {
+    let mut res : Vec<Vec<usize>> = (0..n).map(|i| vec![i]).collect();
+    let mut next= Vec::new();
+    if n >= 4 {
+        res[..(n-4)].clone_into(&mut next);
     }
+    k -=1;
+
+    while next.len() > 0 && k > 0 {
+        let next_old = next;
+        next = Vec::new();
+        for group in next_old {
+            let last_number = group.last().unwrap();
+            for number in (last_number + 4)..n {
+                let mut group_cloned = group.clone();
+                group_cloned.push(number);
+                res.push(group_cloned);
+                if number + 4 < n {
+                    next.push(res.last().unwrap().clone());
+                }
+            }
+        }
+        k -= 1;
+    }
+    res.into_iter().map(|group| group.into_iter().map(|id| input[id]).collect()).collect()
 }
 
 fn main() {
