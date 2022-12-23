@@ -5,9 +5,11 @@
 
 fn stabilite_maximale(n: usize, k: usize, p: i32, mut accroches: Vec<i32>) {
     accroches.sort_unstable(); //sorting the values to calculate less groups (most stables groups are consecutive values)
-    let mut all_distances = Vec::with_capacity(n - 3);
-    for i in 0..(n - 3) {
-        all_distances.push(accroches[i + 3] - accroches[i]);
+    let mut all_distances = Vec::new();
+    if n >= 4 {
+        for i in 0..(n - 3) {
+            all_distances.push(accroches[i + 3] - accroches[i]);
+        }
     }
     let all_groups = find_all_groups(all_distances.len(), k, all_distances);
     let mut res = 0;
@@ -30,7 +32,9 @@ fn find_all_groups(n : usize, mut k: usize, input : Vec<i32>) -> Vec<Vec<i32>> {
     let mut res : Vec<Vec<usize>> = (0..n).map(|i| vec![i]).collect();
     let mut next= Vec::new();
     if n >= 4 {
-        res[..(n-4)].clone_into(&mut next);
+        for i in 0..(n-4) {
+            next.push(res[i].clone());
+        }
     }
     k -=1;
 
