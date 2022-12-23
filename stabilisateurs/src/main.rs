@@ -3,58 +3,37 @@
 /// * `p` - indice de stabilité parfaite
 /// * `accroches` - hauteur de chaque accroche
 
-fn stabilite_maximale(n: usize, k: usize, p: i32, mut accroches: Vec<i32>) {
-    accroches.sort_unstable(); //sorting the values to calculate less groups (most stables groups are consecutive values)
-    let mut all_distances = Vec::new();
+fn stabilite_maximale(n: usize, k: usize, p: i64, mut accroches: Vec<i64>) {
     if n >= 4 {
+        accroches.sort_unstable(); //sorting the values to calculate less groups (most stables groups are consecutive values)
+        let mut all_costs = Vec::with_capacity(n - 3);
         for i in 0..(n - 3) {
-            all_distances.push(accroches[i + 3] - accroches[i]);
+            all_costs.push(p - (accroches[i + 3] - accroches[i]).pow(2));
         }
+        println!("{}", find_max_stab(&all_costs[..], k));
+    } else {
+        println!("{}", 0);
     }
-    let all_groups = find_all_groups(all_distances.len(), k, all_distances);
-    let mut res = 0;
-    for group in all_groups {
-        let mut group_value = 0;
-        for distance in group {
-            let stability = p - distance * distance;
-            if stability > 0 {
-                group_value += stability;
-            }
-        }
-        if group_value >= res {
-            res = group_value;
-        }
-    }
-    println!("{}", res);
 }
 
-fn find_all_groups(n : usize, mut k: usize, input : Vec<i32>) -> Vec<Vec<i32>> {
-    let mut res : Vec<Vec<usize>> = (0..n).map(|i| vec![i]).collect();
-    let mut next= Vec::new();
-    if n >= 4 {
-        for i in 0..(n-4) {
-            next.push(res[i].clone());
-        }
-    }
-    k -=1;
-
-    while next.len() > 0 && k > 0 {
-        let next_old = next;
-        next = Vec::new();
-        for group in next_old {
-            let last_number = group.last().unwrap();
-            for number in (last_number + 4)..n {
-                let mut group_cloned = group.clone();
-                group_cloned.push(number);
-                res.push(group_cloned);
-                if number + 4 < n {
-                    next.push(res.last().unwrap().clone());
-                }
+fn find_max_stab(stabs : &[i64], k: usize) -> i64 {
+    let mut res : i64 = 0;
+    let stabs_len = stabs.len();
+    if k > 0 {
+        for i in 0..stabs_len {
+            let mut sub_stab = 0;
+            if i + 4 < stabs_len  {
+                sub_stab = find_max_stab(&stabs[(i+4)..], k - 1);
+            }
+            if stabs[i] > 0 {
+                sub_stab += stabs[i];
+            }
+            if sub_stab > res {
+                res = sub_stab;
             }
         }
-        k -= 1;
     }
-    res.into_iter().map(|group| group.into_iter().map(|id| input[id]).collect()).collect()
+    res
 }
 
 fn main() {
