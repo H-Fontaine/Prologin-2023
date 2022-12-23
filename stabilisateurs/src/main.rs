@@ -4,11 +4,14 @@
 /// * `accroches` - hauteur de chaque accroche
 
 fn stabilite_maximale(n: usize, k: usize, p: i64, mut accroches: Vec<i64>) {
-    if n >= 4 {
+    if n >= 4 && k > 0 {
         accroches.sort_unstable(); //sorting the values to calculate less groups (most stables groups are consecutive values)
         let mut all_costs = Vec::with_capacity(n - 3);
         for i in 0..(n - 3) {
-            all_costs.push(p - (accroches[i + 3] - accroches[i]).pow(2));
+            let cost = p - (accroches[i + 3] - accroches[i]).pow(2);
+            if cost > 0 {
+                all_costs.push(cost);
+            }
         }
         println!("{}", find_max_stab(&all_costs[..], k));
     } else {
@@ -19,18 +22,13 @@ fn stabilite_maximale(n: usize, k: usize, p: i64, mut accroches: Vec<i64>) {
 fn find_max_stab(stabs : &[i64], k: usize) -> i64 {
     let mut res : i64 = 0;
     let stabs_len = stabs.len();
-    if k > 0 {
-        for i in 0..stabs_len {
-            let mut sub_stab = 0;
-            if i + 4 < stabs_len  {
-                sub_stab = find_max_stab(&stabs[(i+4)..], k - 1);
-            }
-            if stabs[i] > 0 {
-                sub_stab += stabs[i];
-            }
-            if sub_stab > res {
-                res = sub_stab;
-            }
+    for i in 0..stabs_len {
+        let mut stab = stabs[i];
+        if i + 4 < stabs_len && k > 1 {
+            stab += find_max_stab(&stabs[(i+4)..], k - 1);
+        }
+        if stab > res {
+            res = stab;
         }
     }
     res
