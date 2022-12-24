@@ -1,4 +1,4 @@
-use std::fs::{File, read, read_to_string};
+use std::collections::HashSet;
 
 /// * `n` - Le nombre de points
 /// * `m` - Le nombre de tuyaux
@@ -7,30 +7,99 @@ use std::fs::{File, read, read_to_string};
 /// * `b` - Le point d'arrivée
 /// * `tuyaux` - Les tuyaux orientés (point de départ, point d'arrivée, refroidissement)
 
-fn refroidissement(n: usize, m: usize, k: usize, a: usize, b: usize, tuyaux: Vec<Vec<usize>>) {
-    let mut liste_adjacence = vec![Vec::<(usize, usize)>::new(); n];
+fn refroidissement(n: usize, _m: usize, k: usize, a: usize, b: usize, tuyaux: Vec<Vec<usize>>) {
+    let mut followers_list = vec![Vec::<(usize, usize)>::new(); n + 1];
     for tuyau in tuyaux {
-        liste_adjacence[tuyau[0]].push((tuyau[1], tuyau[2])); //a tuyau : (next point, degrees)
+        followers_list[tuyau[0]].push((tuyau[1], tuyau[2])); //a tuyau : (next point, degrees)
     }
-    let res = -1;
-    let mut next_stages : Vec<(usize, usize)> = vec![(a, 0)]; //a stage : (current point, reduced temperature)
-    let mut i = 0;
-    'outer : while i < 100 {
-        i+=1;
-        let current_points = next_stages;
-        next_stages = Vec::new();
-        for stage in current_points {
-            for tuyau in &liste_adjacence[stage.0] {
-                let next_point = tuyau.0;
-                let next_reduced_temp = stage.1 + tuyau.1;
-                if next_point == b && next_reduced_temp >= k {
-                    break 'outer;
+    let mut res = -1;
+    if is_solvable(n,a, b, k, &followers_list) {
+        let mut next_stages : Vec<(usize, usize)> = vec![(a, 0)]; //a stage : (current point, total temperature reduction)
+        let mut i = 0;
+        'outer : loop {
+            i+=1;
+            let current_stages = next_stages;
+            next_stages = Vec::new();
+            for stage in current_stages {
+                for tuyau in &followers_list[stage.0] {
+                    let next_point = tuyau.0;
+                    let next_reduced_temp = stage.1 + tuyau.1;
+                    if next_point == b && next_reduced_temp >= k {
+                        res = i;
+                        break 'outer;
+                    }
+                    next_stages.push((next_point, next_reduced_temp));
                 }
-                next_stages.push((next_point, next_reduced_temp));
             }
         }
     }
     println!("{}", res);
+}
+
+fn is_solvable(number_of_points : usize, departure: usize, arrival: usize, min_temp : usize, followers_list: &Vec<Vec<(usize, usize)>>) -> bool {
+    let mut paths = Vec::<HashSet<usize>>::new();
+    let mut visited = vec![false; number_of_points + 1];
+    match dfs(departure, arrival, min_temp, 0,HashSet::from([departure]), &followers_list, &mut visited, &mut paths) {
+        0 => false, //0 impossible to solve (there is no path from the departure to the arrival)
+        1 => true, //1 possible to solve (there is a path from the departure to the arrival with a sufficient temperature reduction)
+        _ => { //2 maybe possible to solve (there is a path from the departure to the arrival)
+            let mut accessible_from: Vec<Option<HashSet<usize>>> = vec![None; number_of_points + 1];
+            for path in paths { //checks if there is any cycles, if there is a cycle the problem is solvable
+                for &point in &path {
+                    if let Some(accessible) = &accessible_from[point] {
+                        if !accessible.is_disjoint(&path) {
+                            return true;
+                        }
+                    } else {
+                        let mut accessible = HashSet::new();
+                        simple_dfs(point, followers_list, &mut accessible);
+                        accessible_from[point] = Some(accessible);
+                        if !accessible_from[point].as_ref().unwrap().is_disjoint(&path) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        }
+    }
+}
+
+fn simple_dfs(point : usize, followers_list : &Vec<Vec<(usize, usize)>>, accessible : &mut HashSet<usize>) {
+    for follower in &followers_list[point] {
+        if accessible.insert(follower.0) {
+            simple_dfs(follower.0, followers_list, accessible);
+        }
+    }
+}
+
+fn dfs(current_point : usize, target : usize, min_temp : usize, current_temp : usize, current_path : HashSet<usize>, followers_list: &Vec<Vec<(usize, usize)>>, visited : &mut Vec<bool>, paths : &mut Vec<HashSet<usize>>) -> usize {
+    let mut res = 0;
+    visited[current_point] = true;
+    for follower in &followers_list[current_point] {
+        if !visited[follower.0] {
+            let next_temp = current_temp + follower.1;
+            if follower.0 == target {
+                if next_temp >= min_temp {
+                    return 1;
+                } else {
+                    let mut next_path = current_path.clone();
+                    next_path.insert(target);
+                    paths.push(next_path);
+                    res = 2;
+                }
+            } else {
+                let mut next_path = current_path.clone();
+                next_path.insert(follower.0);
+                match dfs(follower.0, target, min_temp, next_temp, next_path, &followers_list, visited, paths) {
+                    0 => {},
+                    1 => return 1,
+                    _ => res = 2
+                }
+            }
+        }
+    }
+    res
 }
 
 fn main() {
@@ -66,29 +135,7 @@ fn main() {
         .collect::<Result<_, _>>()
         .expect("invalid `tuyaux` parameter");
 
-    /*
-    let mut n = 0;
-    let mut m = 0;
-    let mut k = 0;
-    let mut a = 0;
-    let mut b = 0;
-    let mut tuyaux = Vec::new();
-
-    read_entry(&mut n, &mut m, &mut k, &mut a, &mut b, &mut tuyaux, "entries/entry1.txt");
-    */
-
     refroidissement(n, m, k, a, b, tuyaux);
-}
-
-fn read_entry(n: &mut usize, m : &mut usize, k : &mut usize, a : &mut usize, b : &mut usize, tuyaux : &mut Vec<Vec<usize>>, path : &str) {
-    let content = read_to_string(path).unwrap();
-    let mut lines = content.lines();
-    *n = lines.next().unwrap().parse::<i32>().unwrap() as usize;
-    *m = lines.next().unwrap().parse::<i32>().unwrap() as usize;
-    *k = lines.next().unwrap().parse::<i32>().unwrap() as usize;
-    *a = lines.next().unwrap().parse::<i32>().unwrap() as usize;
-    *b = lines.next().unwrap().parse::<i32>().unwrap() as usize;
-    *tuyaux = (0..*m).map(|_| lines.next().unwrap().split_whitespace().map(str::parse).collect::<Result<_, _>>()).collect::<Result<_, _>>().unwrap();
 }
 
 fn read_line(buffer: &mut String) -> &str {
