@@ -13,7 +13,11 @@ fn stabilite_maximale(n: usize, k: usize, p: i64, mut accroches: Vec<i64>) {
                 all_costs.push(cost);
             }
         }
-        println!("{}", find_max_stab(&all_costs[..], k));
+        if all_costs.len() > 0 {
+            println!("{}", find_max_stab(&all_costs[..], k));
+        } else {
+            println!("{}", 0);
+        }
     } else {
         println!("{}", 0);
     }
