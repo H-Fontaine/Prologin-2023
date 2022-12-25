@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::collections::HashSet;
 
 /// * `n` - Le nombre de points
@@ -8,98 +9,126 @@ use std::collections::HashSet;
 /// * `tuyaux` - Les tuyaux orientés (point de départ, point d'arrivée, refroidissement)
 
 fn refroidissement(n: usize, _m: usize, k: usize, a: usize, b: usize, tuyaux: Vec<Vec<usize>>) {
-    let mut followers_list = vec![Vec::<(usize, usize)>::new(); n + 1];
+    let mut adjacency_lists = vec![vec![Vec::<(usize, usize)>::new(); n + 1]; n + 1];
+    let mut adjacency_list_reversed = vec![Vec::<(usize, usize)>::new(); n + 1];
+    let mut mins = vec![n+1; n+1];
+    let mut circuits = vec![Vec::<(usize, usize)>::new(); n+1];
     for tuyau in tuyaux {
-        followers_list[tuyau[0]].push((tuyau[1], tuyau[2])); //a tuyau : (next point, degrees)
-    }
-    let mut res = -1;
-    if is_solvable(n,a, b, k, &followers_list) {
-        let mut next_stages : Vec<(usize, usize)> = vec![(a, 0)]; //a stage : (current point, total temperature reduction)
-        let mut i = 0;
-        'outer : loop {
+        adjacency_list_reversed[tuyau[1]].push((tuyau[0], tuyau[2])); //a tuyau : (next point, degrees reduction)
+
+        let max = min(tuyau[0], tuyau[1]);
+        let mut i = 1;
+        while i <= max {
+            adjacency_lists[i][tuyau[0]].push((tuyau[1], tuyau[2]));
+            if mins[i] > max {
+                mins[i] = max;
+            }
             i+=1;
-            let current_stages = next_stages;
-            next_stages = Vec::new();
-            for stage in current_stages {
-                for tuyau in &followers_list[stage.0] {
-                    let next_point = tuyau.0;
-                    let next_reduced_temp = stage.1 + tuyau.1;
-                    if next_point == b && next_reduced_temp >= k {
-                        res = i;
-                        break 'outer;
-                    }
-                    next_stages.push((next_point, next_reduced_temp));
-                }
-            }
         }
     }
-    println!("{}", res);
+
+    let (distances_to_begin, costs_to_begin) = dijkstra(a, &adjacency_lists[1], n);
+    let (distances_to_end, costs_to_end) = dijkstra(b, &adjacency_list_reversed, n);
+
+    let shortest_path_through_points : Vec<Option<(usize, usize)>> = distances_to_begin.into_iter().zip(distances_to_end.into_iter()).zip(costs_to_begin.into_iter()).zip(costs_to_end.into_iter()).map(|(((distance_to_begin,distance_to_end),cost_to_begin),cost_to_end)| {
+        if !distance_to_begin.is_none() && !distance_to_end.is_none() {
+            Some((distance_to_begin.unwrap() + distance_to_end.unwrap(), cost_to_begin.unwrap() + cost_to_end.unwrap()))
+        } else {
+            None
+        }
+    }).collect();
+
+    let mut blocked = vec![false; n + 1];
+    let mut blocked_sets = vec![HashSet::new(); n + 1];
+    let mut stack = HashSet::new();
+    let mut s = 1;
+    while s < n {
+        if mins[s] < n + 1 {
+            for i in s..(n+1) {
+                blocked[i] = false;
+                blocked_sets[i] = HashSet::new();
+            }
+            circuit(s, 0, s, &mut blocked, &adjacency_lists, &mut stack, 0, &mut blocked_sets, &mut circuits);
+            s += 1;
+        } else {
+            s = n;
+        }
+    }
+    println!("{:?}", circuits);
 }
 
-fn is_solvable(number_of_points : usize, departure: usize, arrival: usize, min_temp : usize, followers_list: &Vec<Vec<(usize, usize)>>) -> bool {
-    let mut paths = Vec::<HashSet<usize>>::new();
-    let mut visited = vec![false; number_of_points + 1];
-    match dfs(departure, arrival, min_temp, 0,HashSet::from([departure]), &followers_list, &mut visited, &mut paths) {
-        0 => false, //0 impossible to solve (there is no path from the departure to the arrival)
-        1 => true, //1 possible to solve (there is a path from the departure to the arrival with a sufficient temperature reduction)
-        _ => { //2 maybe possible to solve (there is a path from the departure to the arrival)
-            let mut accessible_from: Vec<Option<HashSet<usize>>> = vec![None; number_of_points + 1];
-            for path in paths { //checks if there is any cycles, if there is a cycle the problem is solvable
-                for &point in &path {
-                    if let Some(accessible) = &accessible_from[point] {
-                        if !accessible.is_disjoint(&path) {
-                            return true;
-                        }
-                    } else {
-                        let mut accessible = HashSet::new();
-                        simple_dfs(point, followers_list, &mut accessible);
-                        accessible_from[point] = Some(accessible);
-                        if !accessible_from[point].as_ref().unwrap().is_disjoint(&path) {
-                            return true;
-                        }
-                    }
-                }
-            }
-            false
+fn unblock(u : usize, blocked : &mut Vec<bool>, blocked_sets : &mut Vec<HashSet<usize>>) {
+    blocked[u] = false;
+    for w in blocked_sets[u].clone() {
+        blocked_sets[u].remove(&w);
+        if blocked[w] {
+            unblock(w, blocked, blocked_sets);
         }
     }
 }
 
-fn simple_dfs(point : usize, followers_list : &Vec<Vec<(usize, usize)>>, accessible : &mut HashSet<usize>) {
-    for follower in &followers_list[point] {
-        if accessible.insert(follower.0) {
-            simple_dfs(follower.0, followers_list, accessible);
-        }
-    }
-}
-
-fn dfs(current_point : usize, target : usize, min_temp : usize, current_temp : usize, current_path : HashSet<usize>, followers_list: &Vec<Vec<(usize, usize)>>, visited : &mut Vec<bool>, paths : &mut Vec<HashSet<usize>>) -> usize {
-    let mut res = 0;
-    visited[current_point] = true;
-    for follower in &followers_list[current_point] {
-        if !visited[follower.0] {
-            let next_temp = current_temp + follower.1;
-            if follower.0 == target {
-                if next_temp >= min_temp {
-                    return 1;
-                } else {
-                    let mut next_path = current_path.clone();
-                    next_path.insert(target);
-                    paths.push(next_path);
-                    res = 2;
-                }
-            } else {
-                let mut next_path = current_path.clone();
-                next_path.insert(follower.0);
-                match dfs(follower.0, target, min_temp, next_temp, next_path, &followers_list, visited, paths) {
-                    0 => {},
-                    1 => return 1,
-                    _ => res = 2
-                }
+fn circuit(v : usize, cost : usize, s: usize, blocked : &mut Vec<bool>, adjacency_lists : &Vec<Vec<Vec<(usize, usize)>>>, stack : &mut HashSet<usize>, mut stack_cost : usize, blocked_sets : &mut Vec<HashSet<usize>>, circuits : &mut Vec<Vec<(usize, usize)>>) -> bool {
+    let mut f = false;
+    stack.insert(v);
+    stack_cost += cost;
+    blocked[v] = true;
+    for &w in &adjacency_lists[s][v] {
+        if w.0 == s {
+            stack_cost += w.1;
+            for &vertex in &*stack {
+                circuits[vertex].push((stack.len(), stack_cost));
+            }
+            stack_cost -= w.1;
+            f = true;
+        } else if !blocked[w.0] {
+            if circuit(w.0, w.1, s, blocked, adjacency_lists, stack, stack_cost, blocked_sets, circuits) {
+                f = true
             }
         }
     }
-    res
+    if f {
+        unblock(v, blocked, blocked_sets);
+    } else {
+        for &w in &adjacency_lists[s][v] {
+            blocked_sets[w.0].insert(v);
+        }
+    }
+    stack.remove(&v);
+    f
+}
+
+fn dijkstra(start_vertex : usize, followers_list : &Vec<Vec<(usize, usize)>>, number_of_vertex : usize) -> (Vec<Option<usize>>, Vec<Option<usize>>) {
+    let mut min_distance_to_begin = vec![None; number_of_vertex + 1];
+    let mut min_cost_to_begin = vec![None; number_of_vertex + 1];
+    let mut processed_vertex = vec![false; number_of_vertex +1];
+    min_distance_to_begin[start_vertex] = Some(0);
+    min_cost_to_begin[start_vertex] = Some(0);
+    processed_vertex[start_vertex] = true;
+    let mut pivot_vertex = start_vertex;
+    let mut old_pivot_vertex = None;
+    while old_pivot_vertex.is_none() || pivot_vertex != old_pivot_vertex.unwrap() {
+        for &succ_vertex in &followers_list[pivot_vertex] {
+            if !processed_vertex[succ_vertex.0] {
+                let distance = min_distance_to_begin[pivot_vertex].unwrap() + 1;
+                if min_distance_to_begin[succ_vertex.0].is_none() || distance < min_distance_to_begin[succ_vertex.0].unwrap() {
+                    min_distance_to_begin[succ_vertex.0] = Some(distance);
+                    min_cost_to_begin[succ_vertex.0] = Some(min_cost_to_begin[pivot_vertex].unwrap() + succ_vertex.1);
+                }
+            }
+        }
+        let mut min_distance = None;
+        old_pivot_vertex = Some(pivot_vertex);
+        for vertex in 1..(number_of_vertex + 1) {
+            if !processed_vertex[vertex] && !min_cost_to_begin[vertex].is_none() {
+                if min_distance.is_none() || min_distance.unwrap() > min_distance_to_begin[vertex].unwrap() {
+                    min_distance = Some(min_distance_to_begin[vertex].unwrap());
+                    pivot_vertex = vertex;
+                }
+            }
+        }
+        processed_vertex[pivot_vertex] = true;
+    }
+    (min_distance_to_begin, min_cost_to_begin)
 }
 
 fn main() {
