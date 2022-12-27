@@ -1,6 +1,5 @@
 use std::cmp::{min, max};
 use std::collections::HashSet;
-use std::process::exit;
 
 /// * `n` - Le nombre de points
 /// * `m` - Le nombre de tuyaux
@@ -28,30 +27,43 @@ fn refroidissement(n: usize, _m: usize, k: usize, a: usize, b: usize, tuyaux: Ve
         }
     }
 
-    match get_shortest_path_through_points(a, b, n, &adjacency_lists[0], &adjacency_list_reversed) {
+    match get_shortest_path_through_points(a, b, n, &adjacency_lists[1], &adjacency_list_reversed) {
         None => {
             println!("{}", -1);
             return
         },
         Some(paths) => {
+            let mut min_distance = k;
+            let mut solved = false;
+            for &path in &paths[1..] {
+                if !path.is_none() && path.unwrap().1 >= k && path.unwrap().1 <= min_distance {
+                    min_distance = path.unwrap().1;
+                    solved = true;
+                }
+            }
+            if solved {
+                println!("{}", min_distance);
+                return
+            }
+
             let circuits = find_all_circuits(n, &adjacency_lists, &mins);
             let mut i = 1;
-            let mut min_distance = k;
-            let mut count = 0;
             for &path in &paths[1..] {
-                if !path.is_none() {
-                    let to_fill = (k as i32) - (path.unwrap().1 as i32);
+                if !path.is_none() && circuits[i].len() >= 1 {
+                    let to_fill = k - path.unwrap().1;
                     let distance = knapsack(to_fill, min_distance, &circuits[i]) + path.unwrap().0;
                     if distance < min_distance {
                         min_distance = distance;
                     }
-                } else {
-                    count += 1;
+                    solved = true;
                 }
-
                 i += 1;
             }
-            if count == n
+            if solved {
+                println!("{}", min_distance);
+                return
+            }
+            println!("{}", -1);
         }
     }
 }
@@ -91,7 +103,6 @@ fn knapsack(minimal_value : usize, max_weight : usize, circuits : &Vec<(usize, u
     }
     return max_weight
 }
-
 
 
 fn find_all_circuits(number_of_points : usize, adjacency_lists : &Vec<Vec<Vec<(usize, usize)>>>, mins : &Vec<usize>) -> Vec<Vec<(usize, usize)>> { //circuits of the shape : (number of links, sum of the links valuation)
