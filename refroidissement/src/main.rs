@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::cmp::{min, max};
 use std::collections::HashSet;
 
@@ -8,18 +9,18 @@ use std::collections::HashSet;
 /// * `b` - Le point d'arrivée
 /// * `tuyaux` - Les tuyaux orientés (point de départ, point d'arrivée, refroidissement)
 
-fn refroidissement(mut n: usize, _m: usize, k: usize, a: usize, b: usize, tuyaux: Vec<Vec<usize>>) {
-    let mut adjacency_lists = vec![vec![Vec::<(usize, usize)>::new(); n + 1]; n + 1];
-    let mut adjacency_list_reversed = vec![Vec::<(usize, usize)>::new(); n + 1];
+fn refroidissement(mut n: usize, _m: usize, k: i64, a: usize, b: usize, tuyaux: Vec<Vec<i64>>) {
+    let mut adjacency_lists = vec![vec![Vec::<(usize, i64)>::new(); n + 1]; n + 1];
+    let mut adjacency_list_reversed = vec![Vec::<(usize, i64)>::new(); n + 1];
     let mut mins = vec![n+1; n+1];
     let mut one_cycle = Vec::new();
     for tuyau in tuyaux {
-        adjacency_list_reversed[tuyau[1]].push((tuyau[0], tuyau[2])); //a tuyau : (next point, degrees reduction)
+        adjacency_list_reversed[tuyau[1] as usize].push((tuyau[0] as usize, tuyau[2])); //a tuyau : (next point, degrees reduction)
 
-        let max = min(tuyau[0], tuyau[1]);
-        let mut i = 1;
+        let max = min(tuyau[0], tuyau[1]) as usize;
+        let mut i : usize = 1;
         while i <= max {
-            adjacency_lists[i][tuyau[0]].push((tuyau[1], tuyau[2]));
+            adjacency_lists[i][tuyau[0] as usize].push((tuyau[1] as usize, tuyau[2]));
             if mins[i] > max {
                 mins[i] = max;
             }
@@ -27,10 +28,11 @@ fn refroidissement(mut n: usize, _m: usize, k: usize, a: usize, b: usize, tuyaux
         }
 
         if tuyau[0] == tuyau[1] {
-            one_cycle.push((HashSet::from([tuyau[0]]), tuyau[2]));
+            one_cycle.push((HashSet::from([tuyau[0] as usize]), tuyau[2]));
         }
     }
 
+    /*
     match get_shortest_path_through_points(a, b, n, &adjacency_lists[1], &adjacency_list_reversed) {
         None => {
             println!("{}", -1);
@@ -39,9 +41,9 @@ fn refroidissement(mut n: usize, _m: usize, k: usize, a: usize, b: usize, tuyaux
         Some(paths) => {
             let mut min_distance = k;
             let mut solved = false;
-            for &path in &paths[1..] {
-                if !path.is_none() && path.unwrap().1 >= k && path.unwrap().0 <= min_distance {
-                    min_distance = path.unwrap().0;
+            for path in &paths[1..] {
+                if !path.is_none() && path.as_ref().unwrap().1 >= k && path.as_ref().unwrap().0 as i64 <= min_distance {
+                    min_distance = path.as_ref().unwrap().0 as i64;
                     solved = true;
                 }
             }
@@ -58,12 +60,11 @@ fn refroidissement(mut n: usize, _m: usize, k: usize, a: usize, b: usize, tuyaux
             }
 
 
-            let mut i: usize = 1;
-            for &path in &paths[1..] { //a path (distance, cost)
+            let mut i: usize = 0;
+            for path in paths { //a path (distance, cost)
                 if !path.is_none() && circuit_pool.contains(&i) {
-                    let to_fill = k - path.unwrap().1;
-                    let available_vertex = HashSet::from([i]);
-                    min_distance = find_min_distance(available_vertex, &circuits, to_fill, path.unwrap().0, min_distance);
+                    let to_fill = k - path.as_ref().unwrap().1;
+                    min_distance = find_min_distance(path.as_ref().unwrap().0 as i64, path.unwrap().2, &circuits, to_fill, min_distance);
                     solved = true;
                 }
                 i += 1;
@@ -75,19 +76,51 @@ fn refroidissement(mut n: usize, _m: usize, k: usize, a: usize, b: usize, tuyaux
             println!("{}", -1);
         }
     }
+    */
+
+
+
 }
 
-fn find_min_distance(available_vertices : HashSet<usize> , circuits : &Vec<(HashSet<usize>, usize)>, to_fill : usize, distance : usize, mut min_distance : usize) -> usize {
+fn search_paths(start_vertex : usize, end_vertex : usize, cost : i64, adjacency_list : &Vec<Vec<(usize, i64)>>, mut current_path : HashSet<usize>, paths : &mut Vec<(HashSet<usize>, i64)>) {
+    current_path.insert(start_vertex);
+    for link in &adjacency_list[start_vertex] {
+        if link.0 == end_vertex {
+            current_path.insert(end_vertex);
+            paths.push((current_path, cost + link.1));
+            break
+        } else {
+            search_paths(link.0, end_vertex, cost + link.1, adjacency_list, current_path.clone(), paths);
+        }
+    }
+}
+
+fn get_all_paths(start_vertex : usize, end_vertex : usize, adjacency_list : &Vec<Vec<(usize, i64)>>) -> Option<Vec<(HashSet<usize>, i64)>> {
+    let mut res = Vec::new();
+    let current_path = HashSet::new();
+    search_paths(start_vertex, end_vertex, 0, adjacency_list, current_path, &mut res);
+    if res.len() >= 1 {
+        Some(res)
+    } else {
+        None
+    }
+}
+
+
+/*
+Trouve recursivement la distance minimale possible pour avoir le refroidissement necessaire
+*/
+fn find_min_distance(distance : i64, available_vertices : HashSet<usize> , circuits : &Vec<(HashSet<usize>, i64)>, to_fill : i64, mut min_distance : i64) -> i64 {
     for vertex in &available_vertices {
         for (circuit, cost) in circuits {
             if circuit.contains(vertex) {
-                if min_distance > distance + circuit.len() {
+                if min_distance > distance + circuit.len() as i64 {
                     if *cost >= to_fill {
-                        min_distance = distance + circuit.len();
+                        min_distance = distance + circuit.len() as i64;
                     } else {
                         let mut new_available_vertices = available_vertices.clone();
                         new_available_vertices.extend(circuit);
-                        min_distance = find_min_distance(new_available_vertices, circuits, to_fill - cost, distance + circuit.len(), min_distance);
+                        min_distance = find_min_distance(distance + circuit.len() as i64, new_available_vertices, circuits, to_fill - cost, min_distance);
                     }
                 }
             }
@@ -97,13 +130,14 @@ fn find_min_distance(available_vertices : HashSet<usize> , circuits : &Vec<(Hash
 }
 
 
-fn get_shortest_path_through_points(start_vertex : usize, end_vertex : usize, number_of_vertex : usize, adjacency_list : &Vec<Vec<(usize, usize)>>, adjacency_list_reversed : &Vec<Vec<(usize, usize)>>) -> Option<Vec<Option<(usize, usize)>>> {
-    let (distances_to_begin, costs_to_begin) = dijkstra(start_vertex, adjacency_list, number_of_vertex);
-    let (distances_to_end, costs_to_end) = dijkstra(end_vertex, adjacency_list_reversed, number_of_vertex);
+fn get_shortest_path_through_points(start_vertex : usize, end_vertex : usize, number_of_vertex : usize, adjacency_list : &Vec<Vec<(usize, i64)>>, adjacency_list_reversed : &Vec<Vec<(usize, i64)>>) -> Option<Vec<Option<(usize, i64, HashSet<usize>)>>> {
+    let (distances_to_begin, costs_to_begin, paths_from_begin) = dijkstra(start_vertex, adjacency_list, number_of_vertex);
+    let (distances_to_end, costs_to_end, paths_from_end) = dijkstra(end_vertex, adjacency_list_reversed, number_of_vertex);
     let mut count = 0;
-    let paths = distances_to_begin.into_iter().zip(distances_to_end.into_iter()).zip(costs_to_begin.into_iter()).zip(costs_to_end.into_iter()).map(|(((distance_to_begin,distance_to_end),cost_to_begin),cost_to_end)| {
+    let paths = distances_to_begin.into_iter().zip(distances_to_end.into_iter()).zip(costs_to_begin.into_iter()).zip(costs_to_end.into_iter()).zip(paths_from_begin.into_iter()).zip(paths_from_end.into_iter()).map(|(((((distance_to_begin,distance_to_end),cost_to_begin),cost_to_end), mut path_from_begin), path_from_end)| {
         if !distance_to_begin.is_none() && !distance_to_end.is_none() {
-            Some((distance_to_begin.unwrap() + distance_to_end.unwrap(), cost_to_begin.unwrap() + cost_to_end.unwrap()))
+            path_from_begin.as_mut().unwrap().extend(path_from_end.unwrap());
+            Some((distance_to_begin.unwrap() + distance_to_end.unwrap(), cost_to_begin.unwrap() + cost_to_end.unwrap(), path_from_begin.unwrap()))
         } else {
             count += 1;
             None
@@ -116,6 +150,10 @@ fn get_shortest_path_through_points(start_vertex : usize, end_vertex : usize, nu
     }
 }
 
+/*
+Algorithme pour resoudre le probleme du sac a dos
+Inutile car ne permet pas de prendre en compte les nouveaux circuits accessible après utilisation d'un autre
+*/
 fn knapsack(minimal_value : usize, max_weight : usize, circuits : &Vec<(usize, usize)>) -> usize {
     let mut costs = vec![0; max_weight + 1];
 
@@ -132,8 +170,13 @@ fn knapsack(minimal_value : usize, max_weight : usize, circuits : &Vec<(usize, u
     return max_weight
 }
 
-
-fn find_all_circuits(number_of_points : usize, adjacency_lists : &Vec<Vec<Vec<(usize, usize)>>>, mins : &Vec<usize>) -> Vec<(HashSet<usize>, usize)> { //circuits of the shape : (involved vertex, sum of the links valuation)
+/*
+Algorithme de Donald B. Johnson pour trouver les cicuits elementaires dans un graphe, utilise les fonctions circuit & unblock
+Lien : https://www.cs.tufts.edu/comp/150GA/homeworks/hw1/Johnson%2075.PDF
+Renvoie :
+    Vec<(HashSet<usize>, usize)> : un tableau contenant les differents circuits elementaires : (HastSet<usize> : les sommets qui composent le cycle, usize : la somme des valuations des arretes traversee dans le cycle)
+*/
+fn find_all_circuits(number_of_points : usize, adjacency_lists : &Vec<Vec<Vec<(usize, i64)>>>, mins : &Vec<usize>) -> Vec<(HashSet<usize>, i64)> {
     let mut circuits = Vec::new();
     let mut blocked = vec![false; number_of_points + 1];
     let mut blocked_sets = vec![HashSet::new(); number_of_points + 1];
@@ -164,7 +207,7 @@ fn unblock(u : usize, blocked : &mut Vec<bool>, blocked_sets : &mut Vec<HashSet<
     }
 }
 
-fn circuit(v : usize, cost : usize, s: usize, blocked : &mut Vec<bool>, adjacency_lists : &Vec<Vec<Vec<(usize, usize)>>>, stack : &mut HashSet<usize>, mut stack_cost : usize, blocked_sets : &mut Vec<HashSet<usize>>, circuits : &mut Vec<(HashSet<usize>, usize)>) -> bool {
+fn circuit(v : usize, cost : i64, s: usize, blocked : &mut Vec<bool>, adjacency_lists : &Vec<Vec<Vec<(usize, i64)>>>, stack : &mut HashSet<usize>, mut stack_cost : i64, blocked_sets : &mut Vec<HashSet<usize>>, circuits : &mut Vec<(HashSet<usize>, i64)>) -> bool {
     let mut f = false;
     stack.insert(v);
     stack_cost += cost;
@@ -192,10 +235,18 @@ fn circuit(v : usize, cost : usize, s: usize, blocked : &mut Vec<bool>, adjacenc
     f
 }
 
-fn dijkstra(start_vertex : usize, followers_list : &Vec<Vec<(usize, usize)>>, number_of_vertex : usize) -> (Vec<Option<usize>>, Vec<Option<usize>>) {
+/*
+Algorithme de plus court chemin
+Renvoie :
+    (Vec<Option<usize>>, Vec<Option<usize>>) : tableau contenant la distance à l'origine (le nombre d'arrete traversees pour atteindre le sommet i), même chose mais cette fois cette la somme des valuations des arretes traversees
+*/
+fn dijkstra(start_vertex : usize, followers_list : &Vec<Vec<(usize, i64)>>, number_of_vertex : usize) -> (Vec<Option<usize>>, Vec<Option<i64>>, Vec<Option<HashSet<usize>>>) {
     let mut min_distance_to_begin = vec![None; number_of_vertex + 1];
     let mut min_cost_to_begin = vec![None; number_of_vertex + 1];
+    let mut paths = vec![None; number_of_vertex + 1];
+    let mut parents = vec![None; number_of_vertex + 1];
     let mut processed_vertex = vec![false; number_of_vertex +1];
+    paths[start_vertex] = Some(HashSet::from([start_vertex]));
     min_distance_to_begin[start_vertex] = Some(0);
     min_cost_to_begin[start_vertex] = Some(0);
     processed_vertex[start_vertex] = true;
@@ -208,6 +259,7 @@ fn dijkstra(start_vertex : usize, followers_list : &Vec<Vec<(usize, usize)>>, nu
                 if min_distance_to_begin[succ_vertex.0].is_none() || distance < min_distance_to_begin[succ_vertex.0].unwrap() {
                     min_distance_to_begin[succ_vertex.0] = Some(distance);
                     min_cost_to_begin[succ_vertex.0] = Some(min_cost_to_begin[pivot_vertex].unwrap() + succ_vertex.1);
+                    parents[succ_vertex.0] = Some(pivot_vertex);
                 }
             }
         }
@@ -217,13 +269,17 @@ fn dijkstra(start_vertex : usize, followers_list : &Vec<Vec<(usize, usize)>>, nu
             if !processed_vertex[vertex] && !min_cost_to_begin[vertex].is_none() {
                 if min_distance.is_none() || min_distance.unwrap() > min_distance_to_begin[vertex].unwrap() {
                     min_distance = Some(min_distance_to_begin[vertex].unwrap());
+                    let mut path = paths[pivot_vertex].clone().unwrap();
+                    path.insert(vertex);
+                    paths[vertex] = Some(path);
                     pivot_vertex = vertex;
                 }
             }
         }
         processed_vertex[pivot_vertex] = true;
     }
-    (min_distance_to_begin, min_cost_to_begin)
+    paths[start_vertex].as_mut().unwrap().remove(&start_vertex);
+    (min_distance_to_begin, min_cost_to_begin, paths)
 }
 
 fn main() {
