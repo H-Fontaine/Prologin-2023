@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::cmp::{min, max};
 use std::collections::HashSet;
 
@@ -9,7 +8,7 @@ use std::collections::HashSet;
 /// * `b` - Le point d'arrivée
 /// * `tuyaux` - Les tuyaux orientés (point de départ, point d'arrivée, refroidissement)
 
-fn refroidissement(mut n: usize, _m: usize, k: i64, a: usize, b: usize, tuyaux: Vec<Vec<i64>>) {
+fn refroidissement(n: usize, m: usize, k: i64, a: usize, b: usize, tuyaux: Vec<Vec<i64>>) {
     let mut adjacency_lists = vec![vec![Vec::<(usize, i64)>::new(); n + 1]; n + 1];
     let mut adjacency_list_reversed = vec![Vec::<(usize, i64)>::new(); n + 1];
     let mut mins = vec![n+1; n+1];
@@ -39,7 +38,7 @@ fn refroidissement(mut n: usize, _m: usize, k: i64, a: usize, b: usize, tuyaux: 
             return
         },
         Some(paths) => {
-            let mut min_distance = k;
+            let mut min_distance = max(k, n as i64);
             let mut solved = false;
             for path in &paths[1..] {
                 if !path.is_none() && path.as_ref().unwrap().1 >= k && path.as_ref().unwrap().0 as i64 <= min_distance {
@@ -80,6 +79,45 @@ fn refroidissement(mut n: usize, _m: usize, k: i64, a: usize, b: usize, tuyaux: 
 
 
 
+    match get_all_paths(a, b, &adjacency_lists[1]) {
+        None => {
+            println!("{}", -1);
+            return
+        }
+        Some(paths) => {
+            let mut minimal_distance = 2 * k * (n as i64) * (m as i64);
+            let mut solved = false;
+            let mut circuits = find_all_circuits(n, &adjacency_lists, &mins);
+            circuits.extend(one_cycle.into_iter());
+            let mut circuit_pool : HashSet<usize> = HashSet::new();
+            for (circuit, _cost) in &circuits {
+                circuit_pool.extend(circuit);
+            }
+
+            for (path, path_cost) in paths {
+                if path_cost >= k {
+                    if minimal_distance > path_cost {
+                        minimal_distance = path_cost;
+                        solved = true
+                    }
+                } else {
+                    if !path.is_disjoint(&circuit_pool) {
+                        let mut distance = path.len() as i64;
+                        if a != b {
+                            distance -= 1;
+                        }
+                        minimal_distance = find_min_distance(distance, path, &circuits, k - path_cost, minimal_distance);
+                        solved = true;
+                    }
+                }
+            }
+            if solved {
+                println!("{}", minimal_distance);
+            } else {
+                println!("{}", -1);
+            }
+        }
+    }
 }
 
 fn search_paths(start_vertex : usize, end_vertex : usize, cost : i64, adjacency_list : &Vec<Vec<(usize, i64)>>, mut current_path : HashSet<usize>, paths : &mut Vec<(HashSet<usize>, i64)>) {
@@ -89,7 +127,8 @@ fn search_paths(start_vertex : usize, end_vertex : usize, cost : i64, adjacency_
             current_path.insert(end_vertex);
             paths.push((current_path, cost + link.1));
             break
-        } else {
+        }
+        if !current_path.contains(&link.0) {
             search_paths(link.0, end_vertex, cost + link.1, adjacency_list, current_path.clone(), paths);
         }
     }
