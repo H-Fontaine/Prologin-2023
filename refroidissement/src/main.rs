@@ -1,4 +1,4 @@
-use std::cmp::{min, max};
+use std::cmp::max;
 use std::collections::HashSet;
 
 /// * `n` - Le nombre de points
@@ -8,116 +8,64 @@ use std::collections::HashSet;
 /// * `b` - Le point d'arrivée
 /// * `tuyaux` - Les tuyaux orientés (point de départ, point d'arrivée, refroidissement)
 
-fn refroidissement(n: usize, m: usize, k: i64, a: usize, b: usize, tuyaux: Vec<Vec<i64>>) {
-    let mut adjacency_lists = vec![vec![Vec::<(usize, i64)>::new(); n + 1]; n + 1];
-    let mut adjacency_list_reversed = vec![Vec::<(usize, i64)>::new(); n + 1];
-    let mut mins = vec![n+1; n+1];
-    let mut one_cycle = Vec::new();
+fn refroidissement(n: i64, m: usize, k: i64, a: usize, b: usize, tuyaux: Vec<Vec<i64>>) {
+    let mut adjacency_list = vec![Vec::<(usize, i64)>::new(); (n + 1) as usize];
     for tuyau in tuyaux {
-        adjacency_list_reversed[tuyau[1] as usize].push((tuyau[0] as usize, tuyau[2])); //a tuyau : (next point, degrees reduction)
-
-        let max = min(tuyau[0], tuyau[1]) as usize;
-        let mut i : usize = 1;
-        while i <= max {
-            adjacency_lists[i][tuyau[0] as usize].push((tuyau[1] as usize, tuyau[2]));
-            if mins[i] > max {
-                mins[i] = max;
-            }
-            i+=1;
-        }
-
-        if tuyau[0] == tuyau[1] {
-            one_cycle.push((HashSet::from([tuyau[0] as usize]), tuyau[2]));
-        }
+        adjacency_list[tuyau[0] as usize].push((tuyau[1] as usize, tuyau[2])); //a tuyau : (next point, degrees reduction)
     }
 
-    /*
-    match get_shortest_path_through_points(a, b, n, &adjacency_lists[1], &adjacency_list_reversed) {
-        None => {
-            println!("{}", -1);
-            return
-        },
-        Some(paths) => {
-            let mut min_distance = max(k, n as i64);
-            let mut solved = false;
-            for path in &paths[1..] {
-                if !path.is_none() && path.as_ref().unwrap().1 >= k && path.as_ref().unwrap().0 as i64 <= min_distance {
-                    min_distance = path.as_ref().unwrap().0 as i64;
+    let mut i = 0;
+    let mut available_points = HashSet::from([a]);
+    let mut old_len = 0;
+    let mut costs = vec![0; (n + 1) as usize];
+    let mut solved = false;
+    'outer : while old_len != available_points.len() {
+        i +=1;
+        old_len = available_points.len();
+        let old_costs = costs.clone();
+        for point in available_points.clone() {
+            for &(next_point, cost) in &adjacency_list[point] {
+                available_points.insert(next_point);
+                let new_cost = old_costs[point] + cost;
+                if new_cost >= k && next_point == b {
                     solved = true;
+                    break 'outer
+                }
+                if costs[next_point] < new_cost {
+                    costs[next_point] = new_cost;
                 }
             }
-            if solved {
-                println!("{}", min_distance);
-                return
-            }
+        }
+    }
 
-            let mut circuits = find_all_circuits(n, &adjacency_lists, &mins);
-            circuits.extend(one_cycle);
-            let mut circuit_pool : HashSet<usize> = HashSet::new();
-            for (circuit, _cost) in &circuits {
-                circuit_pool.extend(circuit);
-            }
+    if solved {
+        println!("{}", i);
+        return;
+    }
 
-
-            let mut i: usize = 0;
-            for path in paths { //a path (distance, cost)
-                if !path.is_none() && circuit_pool.contains(&i) {
-                    let to_fill = k - path.as_ref().unwrap().1;
-                    min_distance = find_min_distance(path.as_ref().unwrap().0 as i64, path.unwrap().2, &circuits, to_fill, min_distance);
+    'outer : while i < k + n + 1 {
+        i += 1;
+        let old_costs = costs.clone();
+        for &point in &available_points {
+            for &(next_point, cost) in &adjacency_list[point] {
+                let new_cost = old_costs[point] + cost;
+                if new_cost >= k && next_point == b {
                     solved = true;
+                    break 'outer
                 }
-                i += 1;
-            }
-            if solved {
-                println!("{}", min_distance);
-                return
-            }
-            println!("{}", -1);
-        }
-    }
-    */
-
-
-
-    match get_all_paths(a, b, &adjacency_lists[1]) {
-        None => {
-            println!("{}", -1);
-            return
-        }
-        Some(paths) => {
-            let mut minimal_distance = 2 * k * (n as i64) * (m as i64);
-            let mut solved = false;
-            let mut circuits = find_all_circuits(n, &adjacency_lists, &mins);
-            circuits.extend(one_cycle.into_iter());
-            let mut circuit_pool : HashSet<usize> = HashSet::new();
-            for (circuit, _cost) in &circuits {
-                circuit_pool.extend(circuit);
-            }
-
-            for (path, path_cost) in paths {
-                if path_cost >= k {
-                    if minimal_distance > path_cost {
-                        minimal_distance = path_cost;
-                        solved = true
-                    }
-                } else {
-                    if !path.is_disjoint(&circuit_pool) {
-                        let mut distance = path.len() as i64;
-                        if a != b {
-                            distance -= 1;
-                        }
-                        minimal_distance = find_min_distance(distance, path, &circuits, k - path_cost, minimal_distance);
-                        solved = true;
-                    }
+                if costs[next_point] < new_cost {
+                    costs[next_point] = new_cost;
                 }
-            }
-            if solved {
-                println!("{}", minimal_distance);
-            } else {
-                println!("{}", -1);
             }
         }
     }
+
+    if solved {
+        println!("{}", i);
+        return;
+    }
+
+    println!("{}", -1);
 }
 
 fn search_paths(start_vertex : usize, end_vertex : usize, cost : i64, adjacency_list : &Vec<Vec<(usize, i64)>>, mut current_path : HashSet<usize>, paths : &mut Vec<(HashSet<usize>, i64)>) {
