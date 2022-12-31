@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::collections::HashSet;
 
 /// * `n` - Le nombre de points
@@ -8,18 +7,22 @@ use std::collections::HashSet;
 /// * `b` - Le point d'arrivée
 /// * `tuyaux` - Les tuyaux orientés (point de départ, point d'arrivée, refroidissement)
 
-fn refroidissement(n: i64, m: usize, k: i64, a: usize, b: usize, tuyaux: Vec<Vec<i64>>) {
+fn refroidissement(n: i64, _m: usize, k: i64, a: usize, b: usize, tuyaux: Vec<Vec<i64>>) {
     let mut adjacency_list = vec![Vec::<(usize, i64)>::new(); (n + 1) as usize];
     for tuyau in tuyaux {
         adjacency_list[tuyau[0] as usize].push((tuyau[1] as usize, tuyau[2])); //a tuyau : (next point, degrees reduction)
     }
+
+    /*
+    Two different loop to make the second one faster by avoiding copying the variable available points
+    */
 
     let mut i = 0;
     let mut available_points = HashSet::from([a]);
     let mut old_len = 0;
     let mut costs = vec![0; (n + 1) as usize];
     let mut solved = false;
-    'outer : while old_len != available_points.len() {
+    'outer : while old_len != available_points.len() { //while there is new points accessible
         i +=1;
         old_len = available_points.len();
         let old_costs = costs.clone();
@@ -68,6 +71,7 @@ fn refroidissement(n: i64, m: usize, k: i64, a: usize, b: usize, tuyaux: Vec<Vec
     println!("{}", -1);
 }
 
+/*
 fn search_paths(start_vertex : usize, end_vertex : usize, cost : i64, adjacency_list : &Vec<Vec<(usize, i64)>>, mut current_path : HashSet<usize>, paths : &mut Vec<(HashSet<usize>, i64)>) {
     current_path.insert(start_vertex);
     for link in &adjacency_list[start_vertex] {
@@ -115,7 +119,6 @@ fn find_min_distance(distance : i64, available_vertices : HashSet<usize> , circu
     }
     min_distance
 }
-
 
 fn get_shortest_path_through_points(start_vertex : usize, end_vertex : usize, number_of_vertex : usize, adjacency_list : &Vec<Vec<(usize, i64)>>, adjacency_list_reversed : &Vec<Vec<(usize, i64)>>) -> Option<Vec<Option<(usize, i64, HashSet<usize>)>>> {
     let (distances_to_begin, costs_to_begin, paths_from_begin) = dijkstra(start_vertex, adjacency_list, number_of_vertex);
@@ -268,6 +271,7 @@ fn dijkstra(start_vertex : usize, followers_list : &Vec<Vec<(usize, i64)>>, numb
     paths[start_vertex].as_mut().unwrap().remove(&start_vertex);
     (min_distance_to_begin, min_cost_to_begin, paths)
 }
+*/
 
 fn main() {
     let mut buffer = String::new();
